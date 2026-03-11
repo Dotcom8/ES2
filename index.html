@@ -74,17 +74,6 @@
     box-shadow: 0 2px 10px rgba(0,0,0,0.07); width: 300px;
     display: flex; flex-direction: column; align-items: center;
   }
-  .result-box {
-    background: #fff; border-radius: 12px; padding: 16px 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.07); width: 300px;
-  }
-  .result-row {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 6px 0; border-bottom: 1px solid #f0eeea;
-  }
-  .result-row:last-child { border-bottom: none; }
-  .result-label { font-size: 0.82rem; color: #777; }
-  .result-val { font-size: 1.1rem; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -115,45 +104,10 @@
         <button class="toggle-btn" id="toggleFlux"></button>
       </div>
     </div>
-
-    <div class="result-box">
-      <div class="result-row">
-        <span class="result-label">Électrons produits</span>
-        <span class="result-val" id="rElectrons" style="color:#38a858;">0</span>
-      </div>
-      <div class="result-row">
-        <span class="result-label">Énergie utile (eV)</span>
-        <span class="result-val" id="rUtile" style="color:#2a7ab5;">0</span>
-      </div>
-      <div class="result-row">
-        <span class="result-label">Énergie perdue en chaleur (eV)</span>
-        <span class="result-val" id="rChaleur" style="color:#d04040;">0</span>
-      </div>
-      <div class="result-row">
-        <span class="result-label">Rendement énergétique</span>
-        <span class="result-val" id="rRendement" style="color:#c07028;">—</span>
-      </div>
-    </div>
   </div>
 </div>
 
 <script>
-/*
-  PHYSIQUE CORRECTE :
-  ─────────────────
-  Tous les photons visibles (380-700 nm) ont une énergie > 1.1 eV
-  (le seuil du silicium). Donc chaque photon visible qui touche la
-  cellule libère EXACTEMENT 1 électron. Pas plus.
-
-  La différence : l'énergie au-dessus de 1.1 eV est PERDUE en chaleur.
-  → Un photon violet (3.1 eV) produit 1 électron + 2.0 eV de chaleur
-  → Un photon rouge  (1.8 eV) produit 1 électron + 0.7 eV de chaleur
-
-  Donc à nombre de photons ÉGAL, le courant est le MÊME.
-  Mais le rendement énergétique est MEILLEUR pour le rouge.
-  Et le violet chauffe plus le panneau (ce qui le rend moins efficace).
-*/
-
 function setupCanvas(canvas, w, h) {
   const dpr = window.devicePixelRatio || 1;
   canvas.width = w * dpr;
@@ -197,7 +151,6 @@ function rgb(c,a) { return a!==undefined ? `rgba(${c.r},${c.g},${c.b},${a})` : `
 let lambda = 550, highFlux = false;
 let photons = [], electrons = [], flashes = [];
 let spawnAcc = 0;
-let totalElectrons = 0, totalUtile = 0, totalChaleur = 0, totalEnergyIn = 0;
 
 const sliderL = document.getElementById('sliderLambda');
 const toggleBtn = document.getElementById('toggleFlux');
@@ -210,8 +163,6 @@ sliderL.addEventListener('input', () => {
 toggleBtn.addEventListener('click', () => {
   highFlux = !highFlux;
   toggleBtn.classList.toggle('on', highFlux);
-  // Reset stats when toggling to see fair comparison
-  totalElectrons = 0; totalUtile = 0; totalChaleur = 0; totalEnergyIn = 0;
 });
 
 function updateInfo() {
@@ -222,16 +173,6 @@ function updateInfo() {
   document.getElementById('lambdaText').style.color = rgb(col);
   document.getElementById('colorCircle').style.background = rgb(col);
   document.getElementById('colorCircle').style.boxShadow = `0 0 16px ${rgb(col,0.5)}`;
-  // Reset stats on lambda change for clean comparison
-  totalElectrons = 0; totalUtile = 0; totalChaleur = 0; totalEnergyIn = 0;
-}
-
-function updateResults() {
-  document.getElementById('rElectrons').textContent = totalElectrons;
-  document.getElementById('rUtile').textContent = totalUtile.toFixed(1);
-  document.getElementById('rChaleur').textContent = totalChaleur.toFixed(1);
-  const rend = totalEnergyIn > 0 ? Math.round((totalUtile / totalEnergyIn) * 100) : 0;
-  document.getElementById('rRendement').textContent = rend + ' %';
 }
 
 function drawWave() {
@@ -240,12 +181,10 @@ function drawWave() {
   ctxW.fillRect(0, 0, WW, WH);
   const col = wavelengthToRGB(lambda);
   const midY = WH / 2, amp = 22;
-  const minP = 36, maxP = 100;
   const t = (lambda - 380) / (700 - 380);
-  const period = minP + t * (maxP - minP);
+  const period = 36 + t * 64;
 
-  ctxW.strokeStyle = rgb(col);
-  ctxW.lineWidth = 2.5;
+  ctxW.strokeStyle = rgb(col); ctxW.lineWidth = 2.5;
   ctxW.beginPath();
   for (let x = 0; x <= WW; x++) {
     const y = midY - amp * Math.sin((x / period) * Math.PI * 2);
@@ -259,16 +198,13 @@ function drawWave() {
     ctxW.strokeStyle = '#666'; ctxW.lineWidth = 1.5;
     ctxW.beginPath();
     ctxW.moveTo(bs, bY-4); ctxW.lineTo(bs, bY);
-    ctxW.lineTo(be, bY); ctxW.lineTo(be, bY-4);
-    ctxW.stroke();
+    ctxW.lineTo(be, bY); ctxW.lineTo(be, bY-4); ctxW.stroke();
     ctxW.beginPath();
     ctxW.moveTo(bs, bY); ctxW.lineTo(bs+5, bY-3);
-    ctxW.moveTo(bs, bY); ctxW.lineTo(bs+5, bY+3);
-    ctxW.stroke();
+    ctxW.moveTo(bs, bY); ctxW.lineTo(bs+5, bY+3); ctxW.stroke();
     ctxW.beginPath();
     ctxW.moveTo(be, bY); ctxW.lineTo(be-5, bY-3);
-    ctxW.moveTo(be, bY); ctxW.lineTo(be-5, bY+3);
-    ctxW.stroke();
+    ctxW.moveTo(be, bY); ctxW.lineTo(be-5, bY+3); ctxW.stroke();
     ctxW.fillStyle = '#666';
     ctxW.font = 'bold 10px Segoe UI, Arial, sans-serif';
     ctxW.textAlign = 'center';
@@ -293,7 +229,6 @@ function spawnPhoton() {
 }
 
 function tick() {
-  // Low flux baseline, high flux = that baseline amount
   const rate = highFlux ? 0.7 : 0.25;
   spawnAcc += rate;
   while (spawnAcc >= 1) { spawnPhoton(); spawnAcc -= 1; }
@@ -303,14 +238,8 @@ function tick() {
     p.x += p.vx; p.y += p.vy;
     if (p.y >= PANEL_Y && p.y <= PANEL_Y+PANEL_H && p.x >= PANEL_X0 && p.x <= PANEL_X1) {
       p.alive = false;
-      // Every visible photon produces exactly 1 electron
-      totalElectrons++;
-      totalUtile += BAND_GAP;
-      const chaleur = p.energy - BAND_GAP;
-      totalChaleur += chaleur;
-      totalEnergyIn += p.energy;
-
       electrons.push({ x: p.x, y: WIRE_Y, vx: 1.8+Math.random()*1.2, life: 160, maxLife: 160 });
+      const chaleur = p.energy - BAND_GAP;
       const heatRatio = Math.min(1, chaleur / 2.2);
       if (heatRatio > 0.05) {
         flashes.push({
@@ -361,7 +290,7 @@ function drawMain() {
   ctx.textAlign = 'center';
   ctx.fillText('CELLULE PHOTOVOLTAÏQUE', PANEL_MX, PANEL_Y - 10);
 
-  // Circuit dots
+  // Circuit
   dotLine(ctx, PANEL_X0, PANEL_Y+PANEL_H, PANEL_X0, WIRE_Y, '#bbb', 8);
   dotLine(ctx, PANEL_X0, WIRE_Y, PANEL_X1, WIRE_Y, '#bbb', 8);
   dotLine(ctx, PANEL_X1, WIRE_Y, PANEL_X1, PANEL_Y+PANEL_H, '#bbb', 8);
@@ -375,8 +304,7 @@ function drawMain() {
     ctx.globalAlpha = t * 0.55 * f.intensity;
     ctx.beginPath();
     ctx.arc(f.x, f.y, f.size*(1.3-t*0.3), 0, Math.PI*2);
-    ctx.fillStyle = '#ff4444';
-    ctx.fill();
+    ctx.fillStyle = '#ff4444'; ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -403,7 +331,7 @@ function drawMain() {
     ctx.globalAlpha = 1;
   }
 
-  // ── Energy per photon bar ──
+  // Energy bar
   const E = lambdaToEnergy(lambda);
   const barX = PANEL_X1 + 22, eBarTop = 30, eBarH = PANEL_Y - 50, eBarW = 22;
 
@@ -416,14 +344,12 @@ function drawMain() {
   const eFrac = Math.max(0, Math.min(1, (E - eMin) / (eMax - eMin)));
   const fillH = eFrac * eBarH;
 
-  // Solid calm color instead of RGB
   const eGrd = ctx.createLinearGradient(barX, eBarTop+eBarH-fillH, barX, eBarTop+eBarH);
   eGrd.addColorStop(0, '#5b8fb9');
   eGrd.addColorStop(1, '#3a6d94');
   ctx.fillStyle = eGrd;
   ctx.fillRect(barX, eBarTop+eBarH-fillH, eBarW, fillH);
 
-  // Useful part (1.1 eV) in green
   const usefulFrac = Math.max(0, Math.min(1, (BAND_GAP - eMin) / (eMax - eMin)));
   const usefulH = usefulFrac * eBarH;
   const usefulGrd = ctx.createLinearGradient(barX, eBarTop+eBarH-usefulH, barX, eBarTop+eBarH);
@@ -432,25 +358,19 @@ function drawMain() {
   ctx.fillStyle = usefulGrd;
   ctx.fillRect(barX, eBarTop+eBarH-usefulH, eBarW, usefulH);
 
-  // Heat part label (above useful)
   if (E > BAND_GAP + 0.2) {
     const heatTop = eBarTop + eBarH - fillH;
     const heatBottom = eBarTop + eBarH - usefulH;
-    const heatMid = (heatTop + heatBottom) / 2;
     ctx.fillStyle = '#5b8fb9';
     ctx.font = '8px Segoe UI, Arial, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('chaleur', barX + eBarW + 5, heatMid + 3);
+    ctx.fillText('chaleur', barX + eBarW + 5, (heatTop+heatBottom)/2 + 3);
   }
-
-  // Useful label
-  const usefulMid = eBarTop + eBarH - usefulH / 2;
   ctx.fillStyle = '#2d7a45';
   ctx.font = '8px Segoe UI, Arial, sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('utile', barX + eBarW + 5, usefulMid + 3);
+  ctx.fillText('utile', barX + eBarW + 5, eBarTop + eBarH - usefulH/2 + 3);
 
-  // Band gap line
   const bgFrac = (BAND_GAP - eMin) / (eMax - eMin);
   const bgLY = eBarTop + eBarH - bgFrac * eBarH;
   ctx.strokeStyle = '#888'; ctx.lineWidth = 1.5;
@@ -463,13 +383,11 @@ function drawMain() {
   ctx.fillText('1.1 eV', barX + eBarW + 5, bgLY - 4);
   ctx.fillText('(seuil)', barX + eBarW + 5, bgLY + 7);
 
-  // Value on top
   ctx.fillStyle = '#3a6d94';
   ctx.font = 'bold 14px Segoe UI, Arial, sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText(E.toFixed(2) + ' eV', barX + eBarW/2, eBarTop - 8);
 
-  // Title
   ctx.fillStyle = '#555';
   ctx.font = 'bold 10px Segoe UI, Arial, sans-serif';
   ctx.save();
@@ -484,7 +402,6 @@ function frame() {
   tick();
   drawMain();
   drawWave();
-  updateResults();
   requestAnimationFrame(frame);
 }
 
